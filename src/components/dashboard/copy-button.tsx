@@ -22,7 +22,7 @@ export default function CopyButton({ value, label = "نسخ", className }: { val
   };
 
   return (
-    <Button type="button" variant="outline" size="sm" onClick={copy} className={`gap-1.5 ${className ?? ""}`}>
+    <Button type="button" variant="outline" size="sm" onClick={copy} className={`gap-1.5 rounded-lg border-white/12 bg-white/5 hover:border-violet-400/40 hover:bg-white/10 ${className ?? ""}`}>
       {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
       {label}
     </Button>

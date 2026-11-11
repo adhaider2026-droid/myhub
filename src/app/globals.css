@@ -44,7 +44,7 @@
 }
 
 :root {
-  --radius: 0.625rem;
+  --radius: 0.75rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -78,38 +78,42 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+/*
+ * الثيم الداكن — «Aurora Space»
+ * أساس بنفسجي شديد العتمة مع تدرجات Violet / Fuchsia / Teal
+ */
 .dark {
-  --background: oklch(0.15 0.012 285);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.19 0.015 285);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.19 0.015 285);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.63 0.2 298);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: oklch(0.135 0.018 296);
+  --foreground: oklch(0.965 0.008 300);
+  --card: oklch(0.175 0.022 296);
+  --card-foreground: oklch(0.965 0.008 300);
+  --popover: oklch(0.175 0.022 296);
+  --popover-foreground: oklch(0.965 0.008 300);
+  --primary: oklch(0.68 0.2 302);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.245 0.03 296);
+  --secondary-foreground: oklch(0.96 0.008 300);
+  --muted: oklch(0.24 0.026 296);
+  --muted-foreground: oklch(0.715 0.022 298);
+  --accent: oklch(0.26 0.04 300);
+  --accent-foreground: oklch(0.96 0.008 300);
+  --destructive: oklch(0.63 0.2 20);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 13%);
+  --ring: oklch(0.68 0.2 302);
+  --chart-1: oklch(0.62 0.21 302);
+  --chart-2: oklch(0.7 0.16 168);
+  --chart-3: oklch(0.76 0.16 340);
+  --chart-4: oklch(0.78 0.14 85);
+  --chart-5: oklch(0.64 0.2 18);
+  --sidebar: oklch(0.2 0.022 296);
+  --sidebar-foreground: oklch(0.965 0.008 300);
+  --sidebar-primary: oklch(0.68 0.2 302);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.26 0.04 300);
+  --sidebar-accent-foreground: oklch(0.96 0.008 300);
+  --sidebar-border: oklch(1 0 0 / 9%);
+  --sidebar-ring: oklch(0.68 0.2 302);
 }
 
 @layer base {
@@ -121,6 +125,192 @@
   }
 }
 
+/* ============================================================
+   خلفية Aurora — هالات ضوئية تتحرك ببطء خلف المحتوى
+   ============================================================ */
+.aurora-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.aurora-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  will-change: transform;
+}
+.orb-1 {
+  width: 44rem;
+  height: 44rem;
+  top: -16rem;
+  right: -12rem;
+  background: radial-gradient(circle at 35% 35%, oklch(0.52 0.2 302 / 0.5), transparent 65%);
+  animation: drift-1 26s ease-in-out infinite alternate;
+}
+.orb-2 {
+  width: 38rem;
+  height: 38rem;
+  top: 32%;
+  left: -14rem;
+  background: radial-gradient(circle at 60% 40%, oklch(0.52 0.18 340 / 0.4), transparent 65%);
+  animation: drift-2 34s ease-in-out infinite alternate;
+}
+.orb-3 {
+  width: 32rem;
+  height: 32rem;
+  bottom: -12rem;
+  right: 26%;
+  background: radial-gradient(circle at 50% 50%, oklch(0.58 0.12 186 / 0.28), transparent 65%);
+  animation: drift-3 40s ease-in-out infinite alternate;
+}
+@keyframes drift-1 {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(-6rem, 5rem) scale(1.18); }
+}
+@keyframes drift-2 {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(7rem, -4rem) scale(1.12); }
+}
+@keyframes drift-3 {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(-5rem, -6rem) scale(1.2); }
+}
+/* شبكة خافتة تذوب للأسفل */
+.grid-veil {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(oklch(1 0 0 / 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(1 0 0 / 0.035) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse 90% 62% at 50% 0%, black 25%, transparent 78%);
+}
+
+/* ============================================================
+   البطاقة الزجاجية — حدّ متدرج + توهج عند التحويم
+   ============================================================ */
+.glass {
+  position: relative;
+  border: 1px solid oklch(1 0 0 / 9%);
+  background: linear-gradient(160deg, oklch(0.205 0.026 298 / 0.75), oklch(0.16 0.02 296 / 0.88));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow:
+    inset 0 1px 0 0 oklch(1 0 0 / 7%),
+    0 20px 45px -22px oklch(0 0 0 / 0.65);
+}
+/* خط حدّي متدرج أعلى البطاقة (بنفسي + فوشيا) */
+.glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    oklch(0.72 0.19 302 / 0.45),
+    transparent 32%,
+    transparent 68%,
+    oklch(0.7 0.16 340 / 0.3)
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.glass-hover {
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.28s, border-color 0.28s;
+}
+.glass-hover:hover {
+  transform: translateY(-3px);
+  border-color: oklch(0.72 0.19 302 / 0.38);
+  box-shadow:
+    inset 0 1px 0 0 oklch(1 0 0 / 9%),
+    0 28px 60px -26px oklch(0.5 0.2 302 / 0.4);
+}
+
+/* نص متدرج للعناوين */
+.text-gradient {
+  background: linear-gradient(115deg, oklch(0.88 0.1 305), oklch(0.82 0.15 340) 55%, oklch(0.86 0.09 190));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ============================================================
+   حركات الدخول والنبض
+   ============================================================ */
+.fade-up {
+  opacity: 0;
+  animation: fade-up 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+.delay-1 { animation-delay: 0.07s; }
+.delay-2 { animation-delay: 0.14s; }
+.delay-3 { animation-delay: 0.22s; }
+.delay-4 { animation-delay: 0.3s; }
+
+/* نقطة حالة «حيّة» تنبض */
+.live-dot {
+  position: relative;
+  flex-shrink: 0;
+}
+.live-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: inherit;
+  animation: ping-soft 1.9s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes ping-soft {
+  0% { transform: scale(1); opacity: 0.65; }
+  75%, 100% { transform: scale(2.7); opacity: 0; }
+}
+
+/* لمعان يمرّ على أشرطة التقدم */
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.3), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* نافذة كود بنمط macOS */
+.code-window {
+  position: relative;
+  border-radius: 0.875rem;
+  border: 1px solid oklch(1 0 0 / 10%);
+  background: oklch(0.12 0.016 296 / 0.9);
+  overflow: hidden;
+}
+.code-window-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.85rem;
+  border-bottom: 1px solid oklch(1 0 0 / 8%);
+  background: oklch(1 0 0 / 3%);
+}
+.code-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 9999px;
+}
+
 /* شريط تمرير مخصص للقوائم الطويلة */
 .scroll-slim::-webkit-scrollbar {
   width: 8px;
@@ -130,11 +320,11 @@
   background: transparent;
 }
 .scroll-slim::-webkit-scrollbar-thumb {
-  background: oklch(0.4 0.02 285);
+  background: oklch(0.42 0.05 300);
   border-radius: 8px;
 }
 .scroll-slim::-webkit-scrollbar-thumb:hover {
-  background: oklch(0.5 0.03 285);
+  background: oklch(0.52 0.08 302);
 }
 
 /* شريط تقدم متحرك */
@@ -146,4 +336,22 @@
 @keyframes progress-stripe {
   from { background-position: 1rem 0; }
   to { background-position: 0 0; }
+}
+
+/* احترام تفضيل تقليل الحركة */
+@media (prefers-reduced-motion: reduce) {
+  .aurora-orb,
+  .live-dot::after,
+  .shimmer::after,
+  .progress-indeterminate {
+    animation: none;
+  }
+  .fade-up {
+    animation: none;
+    opacity: 1;
+  }
+  .glass-hover,
+  .glass-hover:hover {
+    transform: none;
+  }
 }

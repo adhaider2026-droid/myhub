@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MCP Media Generator — لوحة الإدارة",
-  description: "خادم MCP لتوليد الصور والفيديو بالذكاء الاصطناعي ودمج المقاطع — لوحة إدارة عربية RTL",
+  title: "مركز الوسائط الذكي — لوحة إدارة MCP",
+  description: "خادم MCP لتوليد الصور والفيديو بالذكاء الاصطناعي ودمج المقاطع — لوحة إدارة عربية RTL بتصميم عصري",
 };
 
 export default function RootLayout({
