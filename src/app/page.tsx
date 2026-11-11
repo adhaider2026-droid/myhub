@@ -7,6 +7,7 @@ import HealthHeader from "@/components/dashboard/health-header";
 import KeyManager from "@/components/dashboard/key-manager";
 import TaskBoard from "@/components/dashboard/task-board";
 import ConnectPanel from "@/components/dashboard/connect-panel";
+import MediaLibrary from "@/components/dashboard/media-library";
 import StatsRow from "@/components/dashboard/stats-row";
 import CopyButton from "@/components/dashboard/copy-button";
 import { Clapperboard, Images, Sparkles, Wand2 } from "lucide-react";
@@ -124,8 +125,13 @@ export default function Home() {
           </div>
         </div>
 
-        {/* الربط — عرض كامل */}
+        {/* مكتبة المقاطع — عرض كامل */}
         <div className="fade-up delay-4">
+          <MediaLibrary />
+        </div>
+
+        {/* الربط — عرض كامل */}
+        <div className="fade-up delay-5">
           <ConnectPanel health={health} />
         </div>
       </main>

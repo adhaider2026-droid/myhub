@@ -255,6 +255,7 @@
 .delay-2 { animation-delay: 0.14s; }
 .delay-3 { animation-delay: 0.22s; }
 .delay-4 { animation-delay: 0.3s; }
+.delay-5 { animation-delay: 0.38s; }
 
 /* نقطة حالة «حيّة» تنبض */
 .live-dot {

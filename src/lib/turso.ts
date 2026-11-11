@@ -45,6 +45,12 @@ export async function ensureSchema(): Promise<void> {
           completed_at TEXT
         )`,
       );
+      // ترقية تدريجية: عمود الاسم لمكتبة المقاطع (تجاهل الخطأ إن وُجد مسبقًا)
+      try {
+        await db.execute(`ALTER TABLE tasks ADD COLUMN label TEXT DEFAULT ''`);
+      } catch {
+        /* العمود موجود مسبقًا */
+      }
       await db.execute(
         `CREATE TABLE IF NOT EXISTS api_keys (
           id TEXT PRIMARY KEY,
@@ -89,6 +95,7 @@ function mapTask(r: Record<string, unknown>): TaskRow {
     key_id: (r.key_id as string | null) ?? null,
     model: String(r.model),
     type: r.type as MediaType,
+    label: String(r.label ?? ""),
     prompt: String(r.prompt ?? ""),
     params_json: String(r.params_json ?? "{}"),
     status: r.status as TaskStatus,
@@ -102,7 +109,7 @@ function mapTask(r: Record<string, unknown>): TaskRow {
   };
 }
 
-const TASK_COLS = `id, provider, provider_task_id, key_id, model, type, prompt, params_json,
+const TASK_COLS = `id, provider, provider_task_id, key_id, model, type, label, prompt, params_json,
   status, progress, result_urls_json, error_message, attempts_json, created_at, updated_at, completed_at`;
 
 export interface NewTask {
@@ -251,6 +258,31 @@ export async function taskStats(): Promise<{ total: number; completed: number; f
 export async function deleteTask(id: string): Promise<void> {
   await ensureSchema();
   await getTurso().execute({ sql: "DELETE FROM tasks WHERE id = ?", args: [id] });
+}
+
+/** تعديل بيانات المكتبة (الاسم/الوصف) — منفصل عن updateTask حتى لا يُلمس منطق التوليد */
+export async function updateTaskMeta(
+  id: string,
+  patch: { label?: string; prompt?: string },
+): Promise<TaskRow | null> {
+  await ensureSchema();
+  const sets: string[] = [];
+  const args: InValue[] = [];
+  if (patch.label !== undefined) {
+    sets.push("label = ?");
+    args.push(patch.label.slice(0, 200));
+  }
+  if (patch.prompt !== undefined) {
+    sets.push("prompt = ?");
+    args.push(patch.prompt.slice(0, 4000));
+  }
+  if (!sets.length) return getTask(id);
+  sets.push("updated_at = datetime('now')");
+  await getTurso().execute({
+    sql: `UPDATE tasks SET ${sets.join(", ")} WHERE id = ?`,
+    args: [...args, id],
+  });
+  return getTask(id);
 }
 
 // ----------------------------- المفاتيح -----------------------------

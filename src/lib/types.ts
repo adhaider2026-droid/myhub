@@ -27,6 +27,7 @@ export interface TaskRow {
   key_id: string | null;
   model: string;
   type: MediaType;
+  label: string; // اسم اختياري يعرض في مكتبة المقاطع (افتراضيًا فارغ)
   prompt: string;
   params_json: string; // كل معطيات الطلب الأصلية (لإعادة الإنشاء عند التبديل)
   status: TaskStatus;
