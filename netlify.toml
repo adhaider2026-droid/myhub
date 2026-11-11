@@ -1,0 +1,12 @@
+# إعدادات Netlify للتطبيق الرئيسي — خادم MCP + لوحة الإدارة العربية
+# يُنشر من جذر المستودع (Base Directory فارغ في لوحة Netlify).
+# الدليل الكامل: README.md ← «النشر على Netlify خطوة بخطوة».
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+# إضافة Next.js الرسمية (OpenNext adapter) — تدعم Next.js 16 كاملًا:
+# صفحات + App Router + مسارات API + البث التدفقي في /mcp
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

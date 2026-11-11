@@ -262,12 +262,12 @@ async function doMerge() {
       }
     }
     setProgress(38, 'بدء الدمج…', true);
-    // استطلاع موازٍ للتقدم أثناء process المتزامن
+    // استطلاع موازٍ للتقدم — على Netlify الـ process دالة خلفية تعيد 202 بجسم فارغ فورًا
     startPolling();
     const pr = await fetch(`/api/jobs/${currentJobId}/process`, { method: 'POST' });
-    const pd = await pr.json();
-    if (pr.status === 202) { await waitDone(); }
-    else if (!pr.ok) throw new Error(pd.error || 'فشل الدمج');
+    const pd = await pr.json().catch(() => null);
+    if (pr.status === 202 || !pd) { await waitDone(); }
+    else if (!pr.ok) throw new Error((pd && pd.error) || 'فشل الدمج');
     else showResult(pd);
   } catch (e) {
     showErr(e.message || 'حدث خطأ غير متوقع');

@@ -1,0 +1,23 @@
+# إعدادات Netlify لخدمة دمج الفيديوهات — تُنشر كموقع منفصل من نفس المستودع
+# مع ضبط Base Directory = merger في إعدادات الموقع على لوحة Netlify.
+# المزيد في merger/README.md ← قسم «النشر على Netlify خطوة بخطوة».
+
+[build]
+  publish = "public"          # واجهة عربية RTL ثابتة (public/index.html)
+  command = "echo 'merger: لا خطوة بناء — دوال جاهزة مباشرة'"
+
+[functions]
+  # esbuild يجمع الدوال؛ المكتبات ذات الثنائيات تُترك خارجية (require وقت التشغيل)
+  node_bundler = "esbuild"
+  # ffmpeg-static وffprobe-static يحملان ثنائيات ffmpeg — يجب استبعادها من التجميع
+  # كي يبقى مسار __dirname صحيحًا، و@libsql/client يبقى خارجًا للتوافق الكامل
+  external_node_modules = ["ffmpeg-static", "ffprobe-static", "@libsql/client"]
+
+# الدالة الخلفية للدمج (حتى 15 دقيقة) مضبوطة داخل ملفها نفسه:
+# netlify/functions/api-job-process.mjs ← config = { path, background: true }
+# والتنظيف اليومي المجدول في netlify/functions/cron-cleanup.mjs ← config.schedule
+
+# ملاحظة الحدود على Netlify:
+# - الدوال المتزامنة: 60 ثانية (التكوين/الرفع/الحالة/البث كلها سريعة)
+# - الدالة الخلفية (process): حتى 15 دقيقة — متاحة في الخطة المجانية
+# - حجم طلب الدالة ~6MB → أجزاء الرفع 4MB متوافقة تمامًا

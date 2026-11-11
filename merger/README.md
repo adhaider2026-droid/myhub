@@ -59,7 +59,39 @@ npm run dev                    # يعمل على http://localhost:3001
 npm test                       # الاختبارات الكاملة (وحدات + HTTP)
 ```
 
-## الخطوة 3: النشر على Vercel خطوة بخطوة
+## الخطوة 3: النشر على Netlify (الموصى به) خطوة بخطوة
+
+المجلد جاهز لـ Netlify من نفس المستودع كموقع منفصل:
+
+1. ارفع المشروع إلى مستودع GitHub (مجلد `merger/` جزء من المستودع الرئيسي).
+2. من لوحة Netlify: **Add new site → Import an existing project → GitHub** واختر المستودع.
+3. في إعدادات البناء اضبط **Base directory = `merger`** (مهم جدًا لأن المستودع يحتوي أيضًا تطبيق Next.js في الجذر). كل الباقي يُقرأ تلقائيًا من `merger/netlify.toml`:
+   - `publish = public` (الواجهة العربية) و`functions = netlify/functions`.
+   - `external_node_modules = ["ffmpeg-static", "ffprobe-static", "@libsql/client"]` — الثنائيات تبقى خارج التجميع بمسارها الصحيح.
+4. **Environment Variables** أضف:
+   | المتغير | القيمة |
+   |---|---|
+   | `TURSO_DATABASE_URL` | `libsql://...turso.io` من الخطوة 1 |
+   | `TURSO_AUTH_TOKEN` | التوكن من الخطوة 1 |
+5. **Deploy**. بعد النشر اختبر: `curl https://<نطاقك>.netlify.app/api/config`
+6. انسخ النطاق وضعه في التطبيق الرئيسي كمتغير `MERGER_API_BASE` وأعد نشره.
+
+**كيف تعمل النقاط على Netlify** (دوال v2 بمسارات معلنة `config.path` — بلا redirects):
+
+| الدالة | المسار | النمط |
+|---|---|---|
+| `api-config.mjs` | `/api/config` | متزامنة (60ث) |
+| `api-jobs.mjs` | `/api/jobs` | متزامنة |
+| `api-upload.mjs` | `/api/upload` | متزامنة |
+| `api-job.mjs` | `/api/jobs/:id` | متزامنة |
+| `api-job-video.mjs` | `/api/jobs/:id/video` | متزامنة — **بث تدفقي** بلا حد حجم |
+| `api-job-process.mjs` | `/api/jobs/:id/process` | **خلفية (background)** حتى 15 دقيقة |
+| `cron-cleanup.mjs` | مجدولة يوميًا 03:00 UTC | تنظيف المهام المنتهية |
+
+- على الدالة الخلفية يستلم المتصل `202` فارغًا فورًا والدمج يجري خلفيًا حتى 15 دقيقة (متاح في الخطة المجانية) — التقدم يُستطلع من `GET /api/jobs/{id}` كما هو، فالواجهة والتطبيق الرئيسي يعتمدان الاستطلاع أصلًا.
+- محليًا للاختبار: `npm run test:netlify` يشغّل اختبارًا شاملًا (28 فحصًا) يستدعي دوال Netlify نفسها: إنشاء → رفع → دمج ffmpeg حقيقي → بث Range → حذف.
+
+### النشر البديل على Vercel (إن رغبت)
 
 1. ارفع المشروع إلى مستودع GitHub (مجلد `merger/` جزء من المستودع الرئيسي).
 2. من لوحة Vercel: **Add New → Project** واختر المستودع.

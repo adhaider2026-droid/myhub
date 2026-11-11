@@ -15,6 +15,7 @@ node_modules
 
 # next.js
 /.next/
+/.next-netlify/
 /out/
 
 # production
@@ -35,6 +36,9 @@ yarn-error.log*
 
 # vercel
 .vercel
+
+# netlify
+.netlify
 
 
 # typescript

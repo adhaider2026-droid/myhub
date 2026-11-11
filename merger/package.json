@@ -10,7 +10,8 @@
     "start": "node dev-server.js",
     "test": "node scripts/test-unit.js && node scripts/test-http.js",
     "test:unit": "node scripts/test-unit.js",
-    "test:http": "node scripts/test-http.js"
+    "test:http": "node scripts/test-http.js",
+    "test:netlify": "bun scripts/test-netlify.mjs"
   },
   "engines": {
     "node": ">=18"

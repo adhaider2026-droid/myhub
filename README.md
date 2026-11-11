@@ -81,7 +81,42 @@ turso db tokens create mysite     # ← TURSO_AUTH_TOKEN
 
 > **أسماء الموديلات الفعلية** (متحقق منها بنداءات حقيقية): kie.ai يقبل `gpt-image-2-6/flare-text-to-image` بالشرطات (الصيغة بالنقاط تُرفض)، و`grok-imagine-video-1-5-preview`. أما CometAPI فيستخدم `gpt-image-2.6-flare` عبر `/v1/images/generations` و`grok-imagine-video` عبر `/grok/v1/videos/generations` وفق توثيقه الرسمي.
 
-## الخطوة 3: النشر على Vercel
+## الخطوة 3: النشر على Netlify (الموصى به)
+
+نشر من نفس المستودع على **موقعين منفصلين** في Netlify:
+
+### الموقع 1 — التطبيق الرئيسي (اللوحة + خادم MCP)
+
+1. المستودع مرفوع على GitHub (`adhaider2026-droid/myhub`).
+2. من لوحة Netlify: **Add new site → Import an existing project → GitHub** واختر المستودع.
+3. إعدادات البناء تُقرأ تلقائيًا من `netlify.toml` في الجذر — لا تغيّر شيئًا (Next.js 16 مدعوم رسميًا عبر إضافة OpenNext).
+4. **Site configuration → Environment variables** أضف:
+
+   | المتغير | القيمة |
+   |---|---|
+   | `TURSO_DATABASE_URL` | `libsql://mysite-...turso.io` |
+   | `TURSO_AUTH_TOKEN` | توكن Turso بصلاحيات كتابة |
+   | `MERGER_API_BASE` | نطاق الموقع 2 بعد نشره (مثل `https://merger-xyz.netlify.app`) |
+
+5. **Deploy**. بعدها: اللوحة على `https://<نطاق1>/` وخادم MCP على `https://<نطاق1>/mcp`.
+
+### الموقع 2 — خدمة دمج الفيديوهات (مجلد `merger/`)
+
+1. كرر: **Add new site → Import an existing project** واختر **نفس المستودع**.
+2. في إعدادات البناء اضبط **Base directory = `merger`** (الشرط الوحيد المهم) — الباقي كله تلقائي من `merger/netlify.toml`: الواجهة الثابتة + 6 دوال متزامنة + دالة الدمج الخلفية + التنظيف المجدول.
+3. أضف متغيري `TURSO_DATABASE_URL` و`TURSO_AUTH_TOKEN` له (نفس قاعدة التطبيق أو قاعدة منفصلة).
+4. **Deploy** ثم انسخ نطاقه وضعه في الموقع 1 كمتغير `MERGER_API_BASE` وأعد نشر الموقع 1.
+
+> التحقق بعد النشر: `curl https://<نطاق2>/api/config` يجب أن يعيد الحدود، و`curl https://<نطاق1>/api/health` يعيد `merger.healthy:true`.
+
+### حدود Netlify المدمجة في التصميم
+
+- **الدوال المتزامنة 60 ثانية**: التوليد يعيد `task_id` فورًا ويُتابع بـ `get_task` — التصميم الأصلي عديم الحالة متوافق تمامًا.
+- **الدمج على دالة خلفية (Background Function)** حتى 15 دقيقة — متاحة في الخطة المجانية: العميل يستلم 202 فورًا ويستطلب التقدم من `GET /api/jobs/{id}` (التقدم يُكتب في Turso لحظة بلحظة).
+- **تنظيف يومي مجدول** الساعة 03:00 UTC يحذف كل المهام الأقدم من 24 ساعة.
+- أجزاء الرفع 4MB < حد طلب الدوال (~6MB) — متوافقة.
+
+## النشر البديل على Vercel (إن رغبت)
 
 أنشئ **مشروعين** من نفس المستودع:
 
