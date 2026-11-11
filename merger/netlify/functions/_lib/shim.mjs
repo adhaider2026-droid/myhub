@@ -9,10 +9,9 @@
 
 import { Readable } from "node:stream";
 import { PassThrough } from "node:stream";
-import { createRequire } from "node:module";
-
-const require = createRequire(import.meta.url);
-const util = require("../../../lib/util.js");
+// استيراد ساكن — esbuild يجمّعه داخل حزمة الدالة؛ الـ createRequire الديناميكي
+// كان يترك المسار النسبي حيًا بعد النشر فينفصل عن بنية /var/task
+import * as util from "../../../lib/util.js";
 
 /** استجابة Node شبيهة بـ ServerResponse — PassThrough يدعم stream.pipe والبث التدفق */
 class ShimRes extends PassThrough {
