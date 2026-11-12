@@ -126,28 +126,49 @@ async function downloadToTmp(url, tmpDir, cfgV, onProgress) {
   const maxBytes = cfgV.SOURCE_MAX_MB * 1024 * 1024;
   const timeoutMs = cfgV.DOWNLOAD_TIMEOUT_SEC * 1000;
 
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(new Error('TIMEOUT')), timeoutMs);
-  let res;
-  try {
-    res = await fetch(url, { signal: ctrl.signal, redirect: 'follow' });
-  } catch (e) {
-    clearTimeout(timer);
-    const msg = (e && (e.name === 'AbortError' || /TIMEOUT/.test(String(e.message || e.cause))))
-      ? `انتهت مهلة تنزيل المصدر (${cfgV.DOWNLOAD_TIMEOUT_SEC} ثانية): ${url}`
-      : `تعذر تنزيل المصدر: ${url} — ${e.message}`;
-    throw util.jsonError(400, msg);
+  // المزود المجاني (pollinations) يقيّد الطلبات المتلاحقة (402/429/503) — إعادة محاولة بتهدئة تدريجية
+  const RETRY_DELAYS_SEC = [8, 15, 25, 40, 60];
+  let res = null;
+  let lastErr = null;
+  for (let attempt = 0; attempt <= RETRY_DELAYS_SEC.length; attempt++) {
+    if (attempt > 0) {
+      await util.sleep(RETRY_DELAYS_SEC[attempt - 1] * 1000);
+    }
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(new Error('TIMEOUT')), timeoutMs);
+    try {
+      res = await fetch(url, { signal: ctrl.signal, redirect: 'follow' });
+      if (res.ok) {
+        clearTimeout(timer); // نجاح — أوقف مؤقت المهلة قبل قراءة الجسم
+        break;
+      }
+      // مفيدة فقط: أعد المحاولة على حدّ المعدل/السعة — الفشل الحتمي (4xx آخر) يتوقف فورًا
+      if ([402, 429, 500, 502, 503, 504].includes(res.status) && attempt < RETRY_DELAYS_SEC.length) {
+        try { if (res.body) await res.body.cancel(); } catch (e) { /* تجاهل */ }
+        continue;
+      }
+      try { if (res.body) await res.body.cancel(); } catch (e) { /* تجاهل */ }
+      throw util.jsonError(400, `تعذر تنزيل المصدر: ${url} — رمز الاستجابة ${res.status}`);
+    } catch (e) {
+      if (e && e.status) throw e; // خطأ معلن حتمي — لا إعادة محاولة
+      clearTimeout(timer);
+      lastErr = e;
+      const timedOut = e && (e.name === 'AbortError' || /TIMEOUT/.test(String(e.message || e.cause)));
+      if (attempt >= RETRY_DELAYS_SEC.length) {
+        const msg = timedOut
+          ? `انتهت مهلة تنزيل المصدر (${cfgV.DOWNLOAD_TIMEOUT_SEC} ثانية): ${url}`
+          : `تعذر تنزيل المصدر: ${url} — ${e.message}`;
+        throw util.jsonError(400, msg);
+      }
+      continue; // انقطاع/مهلة مؤقتة — أعِد المحاولة بعد تهدئة
+    }
   }
-
-  if (!res.ok) {
-    clearTimeout(timer);
-    try { if (res.body) await res.body.cancel(); } catch (e) { /* تجاهل */ }
-    throw util.jsonError(400, `تعذر تنزيل المصدر: ${url} — رمز الاستجابة ${res.status}`);
+  if (!res || !res.ok) {
+    throw util.jsonError(400, `تعذر تنزيل المصدر بعد كل المحاولات: ${url} — ${lastErr ? lastErr.message : 'المزود مشغول'}`);
   }
 
   const declared = Number(res.headers.get('content-length'));
   if (Number.isFinite(declared) && declared > maxBytes) {
-    clearTimeout(timer);
     try { if (res.body) await res.body.cancel(); } catch (e) { /* تجاهل */ }
     throw util.jsonError(413, `حجم المصدر ${url} (${util.mb(declared)}MB) تجاوز الحد المسموح (${cfgV.SOURCE_MAX_MB}MB)`);
   }
