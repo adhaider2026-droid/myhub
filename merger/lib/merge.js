@@ -570,10 +570,11 @@ async function processJob(jobId, origin) {
     throw util.jsonError(409, 'حالة المهمة الحالية لا تسمح ببدء المعالجة');
   }
 
-  return runPipeline(jobId, origin);
+  return runPipeline(jobId, origin, await db.getJob(jobId));
 }
 
-async function runPipeline(jobId, origin) {
+async function runPipeline(jobId, origin, jobRow) {
+  const job = jobRow || (await db.getJob(jobId));
   const cfgV = util.cfg();
   const tmpDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'merger-'));
   let lastWritten = 0;
