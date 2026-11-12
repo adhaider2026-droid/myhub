@@ -175,46 +175,42 @@ async function downloadToTmp(url, tmpDir, cfgV, onProgress) {
 
   let received = 0;
   let lastFrac = 0;
-  try {
-    const nodeStream = Readable.fromWeb(res.body);
-    await new Promise((resolve, reject) => {
-      let settled = false;
-      const done = (e) => {
-        if (settled) return;
-        settled = true;
-        if (e) reject(e); else resolve();
-      };
-      nodeStream.on('error', (e) => {
-        if (/TOO_BIG/.test(String(e.message))) {
-          done(util.jsonError(413, `حجم المصدر ${url} تجاوز الحد المسموح (${cfgV.SOURCE_MAX_MB}MB) أثناء التنزيل`));
-        } else if (e && (e.name === 'AbortError' || /TIMEOUT/.test(String(e.message || e.cause)))) {
-          done(util.jsonError(400, `انتهت مهلة تنزيل المصدر (${cfgV.DOWNLOAD_TIMEOUT_SEC} ثانية): ${url}`));
-        } else {
-          done(util.jsonError(400, `فشل تنزيل المصدر: ${url} — ${e.message}`));
-        }
-      });
-      nodeStream.on('data', (c) => {
-        received += c.length;
-        if (received > maxBytes) {
-          nodeStream.destroy(new Error('TOO_BIG'));
-          return;
-        }
-        if (typeof onProgress === 'function' && Number.isFinite(declared) && declared > 0) {
-          const frac = received / declared;
-          if (frac - lastFrac >= 0.05 || frac >= 1) {
-            lastFrac = frac;
-            onProgress(Math.min(1, frac));
-          }
-        }
-      });
-      const ws = fs.createWriteStream(dest);
-      ws.on('error', (e) => done(util.jsonError(500, `تعذر كتابة المصدر إلى القرص المؤقت: ${e.message}`)));
-      ws.on('finish', () => done(null));
-      nodeStream.pipe(ws);
+  const nodeStream = Readable.fromWeb(res.body);
+  await new Promise((resolve, reject) => {
+    let settled = false;
+    const done = (e) => {
+      if (settled) return;
+      settled = true;
+      if (e) reject(e); else resolve();
+    };
+    nodeStream.on('error', (e) => {
+      if (/TOO_BIG/.test(String(e.message))) {
+        done(util.jsonError(413, `حجم المصدر ${url} تجاوز الحد المسموح (${cfgV.SOURCE_MAX_MB}MB) أثناء التنزيل`));
+      } else if (e && (e.name === 'AbortError' || /TIMEOUT/.test(String(e.message || e.cause)))) {
+        done(util.jsonError(400, `انتهت مهلة تنزيل المصدر (${cfgV.DOWNLOAD_TIMEOUT_SEC} ثانية): ${url}`));
+      } else {
+        done(util.jsonError(400, `فشل تنزيل المصدر: ${url} — ${e.message}`));
+      }
     });
-  } finally {
-    clearTimeout(timer);
-  }
+    nodeStream.on('data', (c) => {
+      received += c.length;
+      if (received > maxBytes) {
+        nodeStream.destroy(new Error('TOO_BIG'));
+        return;
+      }
+      if (typeof onProgress === 'function' && Number.isFinite(declared) && declared > 0) {
+        const frac = received / declared;
+        if (frac - lastFrac >= 0.05 || frac >= 1) {
+          lastFrac = frac;
+          onProgress(Math.min(1, frac));
+        }
+      }
+    });
+    const ws = fs.createWriteStream(dest);
+    ws.on('error', (e) => done(util.jsonError(500, `تعذر كتابة المصدر إلى القرص المؤقت: ${e.message}`)));
+    ws.on('finish', () => done(null));
+    nodeStream.pipe(ws);
+  });
 
   if (received === 0) throw util.jsonError(400, `المصدر ${url} أعاد محتوى فارغًا`);
   return dest;
