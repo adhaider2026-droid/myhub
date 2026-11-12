@@ -285,6 +285,85 @@ function ffprobePath() {
 }
 
 /* ------------------------------------------------------------------ */
+/* تنزيل الثنائيات وقت التشغيل — Netlify لا يشحن node_modules مع الدوال */
+/* ------------------------------------------------------------------ */
+
+// مصادر رسمية: ffmpeg من إصدارات ffmpeg-static (ثنائي خام)، وffprobe من حزمة npm الرسمية (tgz)
+const BINARY_SOURCES = {
+  ffmpeg: {
+    url: 'https://github.com/eugeneware/ffmpeg-static/releases/download/b6.0/ffmpeg-linux-x64',
+    archive: false,
+  },
+  ffprobe: {
+    url: 'https://registry.npmjs.org/ffprobe-static/-/ffprobe-static-3.1.0.tgz',
+    archive: true,
+    inner: 'package/bin/linux/x64/ffprobe',
+  },
+};
+
+const binaryDownloads = {}; // ضمان تنزيل واحد لكل ثنائي (وعد مشترك)
+
+/**
+ * يعيد مسار الثنائي مع الضمان: إن لم يوجد محليًا (env/حزمة/PATH) ينزّله إلى /tmp/bin
+ * ويعيد استخدام النسخة المخزنة في النداءات التالية لنفس نسخة الـ lambda.
+ */
+async function ensureBinary(kind) {
+  try {
+    return resolveBinary(kind); // env أو الحزمة أو PATH
+  } catch (e) {
+    /* غير موجود — نفعل التنزيل */
+  }
+  const cached = `/tmp/bin/${kind}`;
+  try {
+    fs.accessSync(cached, fs.constants.X_OK);
+    binaryCache[kind] = cached;
+    return cached;
+  } catch (e) {
+    /* لا نسخة مخزنة — ننزّل */
+  }
+  if (!binaryDownloads[kind]) binaryDownloads[kind] = downloadBinary(kind);
+  const p = await binaryDownloads[kind];
+  binaryCache[kind] = p;
+  return p;
+}
+
+async function downloadBinary(kind) {
+  const src = BINARY_SOURCES[kind];
+  if (!src) throw jsonError(500, `لا مصدر تنزيل للثنائي ${kind}`);
+  fs.mkdirSync('/tmp/bin', { recursive: true });
+  const finalPath = `/tmp/bin/${kind}`;
+
+  const res = await fetch(src.url, { signal: AbortSignal.timeout(120000) });
+  if (!res.ok) throw jsonError(500, `فشل تنزيل ${kind} (HTTP ${res.status})`);
+  const buf = Buffer.from(await res.arrayBuffer());
+
+  if (!src.archive) {
+    // ثنائي خام — اكتبه مباشرة
+    fs.writeFileSync(finalPath, buf);
+    fs.chmodSync(finalPath, 0o755);
+    return finalPath;
+  }
+
+  // tgz — استخرج بالـ tar المتوفر في النظام ثم انسخ الثنائي المطلوب
+  const tgz = `/tmp/${kind}.tgz`;
+  const tmpExtract = `/tmp/${kind}-extract`;
+  fs.writeFileSync(tgz, buf);
+  fs.rmSync(tmpExtract, { recursive: true, force: true });
+  fs.mkdirSync(tmpExtract, { recursive: true });
+  await new Promise((resolve, reject) => {
+    const child = spawn('tar', ['-xzf', tgz, '-C', tmpExtract], { stdio: 'ignore' });
+    child.on('exit', (code) => (code === 0 ? resolve() : reject(jsonError(500, `فشل استخراج ${kind} (tar كود ${code})`))));
+    child.on('error', (e) => reject(jsonError(500, `tar غير متاح لاستخراج ${kind}: ${e.message}`)));
+  });
+  const inner = path.join(tmpExtract, src.inner);
+  fs.accessSync(inner, fs.constants.X_OK);
+  fs.copyFileSync(inner, finalPath);
+  fs.chmodSync(finalPath, 0o755);
+  try { fs.rmSync(tmpExtract, { recursive: true, force: true }); fs.rmSync(tgz, { force: true }); } catch (e) { /* تنظيف */ }
+  return finalPath;
+}
+
+/* ------------------------------------------------------------------ */
 /* مساعدات متنوعة                                                      */
 /* ------------------------------------------------------------------ */
 
@@ -324,6 +403,7 @@ module.exports = {
   loadEnvFiles,
   ffmpegPath,
   ffprobePath,
+  ensureBinary,
   toBuffer,
   mb,
   sleep,
