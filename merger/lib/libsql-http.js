@@ -11,7 +11,8 @@
 function toCell(v) {
   if (v === null || v === undefined) return { type: 'null', value: null };
   if (typeof v === 'number') {
-    return Number.isInteger(v) ? { type: 'integer', value: String(v) } : { type: 'float', value: String(v) };
+    // واجهة Turso: integer يقبل نصًا، أما float فيتطلب رقمًا JSON خامًا
+    return Number.isInteger(v) ? { type: 'integer', value: String(v) } : { type: 'float', value: v };
   }
   if (typeof v === 'bigint') return { type: 'integer', value: String(v) };
   if (typeof v === 'string') return { type: 'text', value: v };
