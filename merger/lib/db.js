@@ -5,7 +5,8 @@
  * كل شيء يُخزَّن هنا: المهام، بيانات المصادر، أجزاء الملفات، والفيديو الناتج.
  */
 
-const { createClient } = require('@libsql/client');
+// @libsql/client استُبدل بشيم HTTP خالص (بلا ثنائيات native) — راجع libsql-http.js
+const { createClient } = require('./libsql-http');
 const util = require('./util');
 
 let _client = null;

@@ -4,14 +4,22 @@
 
 [build]
   publish = "public"          # واجهة عربية RTL ثابتة (public/index.html)
-  command = "echo 'merger: لا خطوة بناء — دوال جاهزة مباشرة'"
+  # تثبيت صريح للمكتبات — بدونه تُترك external_node_modules بلا node_modules وقت التشغيل
+  # ويفشل التشغيل بخطأ Cannot find module '@libsql/client'
+  command = "npm install --no-audit --no-fund --loglevel=error"
 
 [functions]
   # esbuild يجمع الدوال؛ المكتبات ذات الثنائيات تُترك خارجية (require وقت التشغيل)
   node_bundler = "esbuild"
   # ffmpeg-static وffprobe-static يحملان ثنائيات ffmpeg — يجب استبعادها من التجميع
-  # كي يبقى مسار __dirname صحيحًا، و@libsql/client يبقى خارجًا للتوافق الكامل
-  external_node_modules = ["ffmpeg-static", "ffprobe-static", "@libsql/client"]
+  # كي يبقى مسار __dirname صحيحًا. @libsql/client استُبدل بشيم HTTP خالص داخل lib/libsql-http.js
+  external_node_modules = ["ffmpeg-static", "ffprobe-static"]
+  # شحن ملفات المكتبات الخارجية داخل حزمة الدالة — included_files ينسخها بمساراتها الأصلية
+  # فتُحلّ require الخارجية من node_modules داخل /var/task حتى لو فشل تثبيت التبعيات على السحابة
+  included_files = [
+    "node_modules/ffmpeg-static/**",
+    "node_modules/ffprobe-static/**",
+  ]
 
 # الدالة الخلفية للدمج (حتى 15 دقيقة) مضبوطة داخل ملفها نفسه:
 # netlify/functions/api-job-process.mjs ← config = { path, background: true }
