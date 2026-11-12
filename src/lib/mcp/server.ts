@@ -10,10 +10,10 @@ import type { TaskRow } from "../types";
 
 export const SERVER_INFO = { name: "media-generator-mcp", version: "1.2.0" };
 
-export const SERVER_INSTRUCTIONS = `AI media generation server (Gemini Veo + kie.ai + CometAPI with automatic sequential multi-key failover, a FREE no-key reels engine, and video merging).
+export const SERVER_INSTRUCTIONS = `AI media generation server (Google Gemini Omni Flash video + kie.ai + CometAPI with automatic sequential multi-key failover, free no-key images via Pollinations, a FREE no-key reels engine, and video merging).
 Workflow: call generate_image or generate_video. If the response contains finished URLs, show them to the user.
 If it returns a task_id with status PROCESSING, call get_task with that task_id every ~10 seconds until status is completed (show the URL) or failed (explain why).
-VIDEO MODELS: the default grok model uses configured API keys (Gemini Veo first, then kie.ai, then CometAPI). The model "reels-free" is 100% FREE and needs NO API key: it builds a vertical 9:16 reel from AI-generated scenes with cinematic camera motion (params: scenes 1-10, seconds_per_scene 2-8). If no API keys are configured, use "reels-free".
+VIDEO MODELS: the default gemini-omni-1.2-flash runs on a Gemini API key (added from the admin panel). Image generation is FREE by default (Pollinations, no key needed). The model "reels-free" is 100% FREE and needs NO API key: it builds a vertical 9:16 reel from AI-generated scenes with cinematic camera motion (params: scenes 1-10, seconds_per_scene 2-8). If no Gemini key is configured, use "reels-free" for video.
 IMPORTANT: the server automatically switches API keys in strict order on any failure (exhausted balance, invalid key, rate limits) and continues the SAME task under the same task_id — you will never encounter key/balance errors. Never stop or warn the user about keys or balances; just keep polling get_task until the result appears.
 To concatenate several finished clips into one video, call merge_videos with 'urls' (direct links) or 'task_ids' (completed video tasks, in merge order); track it with get_task the same way. Note: the merged file is stored on the merging service for ~24 hours only — tell the user to watch/download it promptly.
 Use list_media to recall previously generated media from the database.`;
@@ -21,12 +21,12 @@ Use list_media to recall previously generated media from the database.`;
 // ----------------------------- الأوصاف الإنجليزية للأدوات -----------------------------
 
 const IMG_DESC =
-  "Generate an image with gpt-image-2-6/flare-text-to-image (automatic failover across all active API keys). " +
+  "Generate an image. FREE by default (Pollinations, no API key needed) with paid fallbacks (Gemini image model / kie / CometAPI) when keys exist. " +
   "Returns a ready image URL if completed within the wait window; otherwise returns a task_id — " +
   "call get_task with that task_id every ~10 seconds until completed, then show the URL and stop.";
 
 const VIDEO_DESC =
-  "Generate a video. Default model grok-imagine-video-1-5-preview (native synchronized audio, optional image-to-video) runs on Gemini Veo, kie.ai or CometAPI keys with automatic failover. " +
+  "Generate a video. Default model gemini-omni-1.2-flash (Gemini Omni Flash: native synchronized audio, portrait 9:16, optional image-to-video, 3-15 seconds) requires an active Gemini API key. " +
   "Model \"reels-free\" is FREE with NO API key: a vertical 9:16 reel built from AI-generated scenes with cinematic camera motion and smooth transitions (params scenes + seconds_per_scene; aspect_ratio 9:16/16:9/1:1). " +
   "Videos take minutes: short wait with live progress streaming, then a task_id is returned — track it with get_task every ~10 seconds until completed.";
 
@@ -63,15 +63,15 @@ const generateVideoSchema = {
   prompt: z.string().min(1).max(4096).describe("Scene description. Dialogue in the prompt is spoken in the video."),
   image_url: z.string().optional().describe("Optional public image URL as the first frame (image-to-video; not used by reels-free)."),
   model: z
-    .enum(["grok-imagine-video-1-5-preview", "grok-imagine-video-1.5-preview", "reels-free"])
-    .default("grok-imagine-video-1-5-preview"),
+    .enum(["gemini-omni-1.2-flash", "grok-imagine-video-1-5-preview", "grok-imagine-video-1.5-preview", "reels-free"])
+    .default("gemini-omni-1.2-flash"),
   aspect_ratio: z.enum(["auto", "1:1", "16:9", "9:16", "3:2", "2:3"]).default("9:16"),
-  resolution: z.enum(["480p", "720p", "1080p"]).default("480p"),
+  resolution: z.enum(["480p", "720p", "1080p"]).default("720p"),
   enable_audio: z.boolean().default(true),
-  duration: z.number().int().min(1).max(15).default(8).describe("Duration in seconds (Veo supports 4, 6 or 8)."),
+  duration: z.number().int().min(3).max(15).default(8).describe("Duration in seconds (3-15; Gemini generates native audio)."),
   scenes: z.number().int().min(1).max(10).optional().describe("reels-free only: number of scenes (default 4)."),
   seconds_per_scene: z.number().int().min(2).max(8).optional().describe("reels-free only: seconds per scene (default 4)."),
-  wait_seconds: z.number().int().min(0).max(240).default(25),
+  wait_seconds: z.number().int().min(0).max(240).default(60),
 };
 
 const mergeVideosSchema = {

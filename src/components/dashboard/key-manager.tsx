@@ -38,7 +38,7 @@ interface ProviderBalance {
 export default function KeyManager() {
   const [keys, setKeys] = useState<PublicKeyView[]>([]);
   const [balances, setBalances] = useState<Record<string, ProviderBalance>>({});
-  const [provider, setProvider] = useState<string>("kie");
+  const [provider, setProvider] = useState<string>("gemini");
   const [label, setLabel] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [saving, setSaving] = useState(false);
@@ -148,7 +148,7 @@ export default function KeyManager() {
                   <SelectValue placeholder="اختر المزود" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="gemini">Gemini — Veo (جوجل)</SelectItem>
+                  <SelectItem value="gemini">Google Gemini (Omni Flash)</SelectItem>
                   <SelectItem value="kie">kie.ai</SelectItem>
                   <SelectItem value="cometapi">CometAPI</SelectItem>
                 </SelectContent>
@@ -169,11 +169,20 @@ export default function KeyManager() {
             <Input
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder="الصق مفتاح API هنا"
+              placeholder={provider === "gemini" ? "AIza..." : "الصق مفتاح API هنا"}
               type="password"
               className="border-white/10 bg-white/5 font-mono text-left placeholder:text-muted-foreground/50"
               dir="ltr"
             />
+            {provider === "gemini" && (
+              <p className="text-[10px] leading-relaxed text-muted-foreground/80">
+                مفتاح Gemini مجاني من{" "}
+                <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-blue-300 underline underline-offset-2">
+                  aistudio.google.com/apikey
+                </a>{" "}
+                — يشغّل توليد الفيديو (Omni Flash) والصور. ملاحظة: توليد الفيديو عبر API يتطلب تفعيل الفوترة على المشروع.
+              </p>
+            )}
           </div>
           <Button
             onClick={add}

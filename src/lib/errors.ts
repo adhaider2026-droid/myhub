@@ -14,8 +14,8 @@ export class ProviderError extends Error {
   }
 }
 
-const AUTH_PATTERNS = /(invalid api key|api key not valid|api_key_invalid|unauthorized|forbidden|authentication|permission denied|apikey غير صالح)/i;
-const EXHAUSTED_PATTERNS = /(insufficient|quota|balance|credit|out of credits|exhausted|充值|رصيد)/i;
+const AUTH_PATTERNS = /(invalid api key|api key not valid|api_key_invalid|unauthorized|forbidden|authentication|unauthenticated|permission denied|permission_denied|apikey غير صالح)/i;
+const EXHAUSTED_PATTERNS = /(insufficient|quota|balance|credit|out of credits|exhausted|充值|رصيد|resource_exhausted|billing|failed_precondition)/i;
 // يشمل: model not found / unsupported model / "model name ... is not supported" (صيغة kie الفعلية)
 const MODEL_PATTERNS = /(model not found|unsupported model|unknown model|not a valid model|invalid model|model does not exist|model[^.]{0,40}not supported)/i;
 // أخطاء حقول مطلوبة لدى kie تصل بحالة 500 داخليًا — معطيات وليست مؤقتة

@@ -1,7 +1,8 @@
 // سجل الموديلات — الاسم canonical كما يراه عميل MCP، واسم providerModel كما يُرسل لكل مزود.
 // الأسماء الحقيقية مأخوذة من التوثيق الرسمي وقابلة للتجاوز بمتغيرات البيئة:
-// KIE_IMAGE_MODEL / KIE_VIDEO_MODEL / COMETAPI_IMAGE_MODEL / COMETAPI_VIDEO_MODEL /
-// GEMINI_VIDEO_MODEL / POLLINATIONS_IMAGE_MODEL.
+// GEMINI_VIDEO_MODEL / GEMINI_IMAGE_MODEL / KIE_IMAGE_MODEL / KIE_VIDEO_MODEL /
+// COMETAPI_IMAGE_MODEL / COMETAPI_VIDEO_MODEL / POLLINATIONS_IMAGE_MODEL.
+// ملاحظة: Veo 3.1 Preview أُقفل على Gemini API في 22-10-2026 — البديل الرسمي Gemini Omni Flash (واجهة Interactions).
 
 import type { MediaType, ProviderId } from "./types";
 
@@ -20,22 +21,31 @@ const KIE_VIDEO_MODEL = process.env.KIE_VIDEO_MODEL || "grok-imagine-video-1-5-p
 // توثيق CometAPI: صور gpt-image-2.6-flare عبر /v1/images/generations، وفيديو grok-imagine عبر /grok/v1/videos/generations
 const COMETAPI_IMAGE_MODEL = process.env.COMETAPI_IMAGE_MODEL || "gpt-image-2.6-flare";
 const COMETAPI_VIDEO_MODEL = process.env.COMETAPI_VIDEO_MODEL || "grok-imagine-video";
-// Gemini API (Google Veo) — عنوان الموديل من AI Studio، والافتراضي الأسرع والأرخص ($0.10/ثانية تقريبًا)
-const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "veo-3.1-fast-generate-preview";
-// موديل صور Pollinations المجاني (flux افتراضيًا)
+// Gemini API — فيديو عبر Omni Flash (بديل Veo المُقفل)، وصور عبر موديل صور Gemini (مدفوع)
+const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "gemini-omni-1.2-flash";
+const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || "gemini-3.1-flash-image";
+// موديل صور Pollinations المجاني (flux افتراضيًا) لموديل الريلز
 const POLLINATIONS_IMAGE_MODEL = process.env.POLLINATIONS_IMAGE_MODEL || "flux";
 
 export const MODELS: ModelDef[] = [
   {
+    // الصور: Pollinations مجاني بلا مفتاح (يُحقن آليًا آخر المجموعة)، ثم مفاتيح المزودين إن وُجدت
     canonical: "gpt-image-2-6/flare-text-to-image",
-    aliases: ["gpt-image-2-6/flare-text-to-image", "gpt-image-2.6/flare-text-to-image"],
+    aliases: ["gpt-image-2-6/flare-text-to-image", "gpt-image-2.6/flare-text-to-image", "gemini-3.1-flash-image"],
     type: "image",
-    providers: ["kie", "cometapi"],
-    providerModel: { kie: KIE_IMAGE_MODEL, cometapi: COMETAPI_IMAGE_MODEL, gemini: "", pollinations: "" },
+    providers: ["gemini", "kie", "cometapi", "pollinations"],
+    providerModel: { kie: KIE_IMAGE_MODEL, cometapi: COMETAPI_IMAGE_MODEL, gemini: GEMINI_IMAGE_MODEL, pollinations: "free-image" },
   },
   {
-    canonical: "grok-imagine-video-1-5-preview",
-    aliases: ["grok-imagine-video-1-5-preview", "grok-imagine-video-1.5-preview"],
+    // الفيديو: Gemini Omni Flash هو المسار الأساسي (بديل Veo المُقفل) — أسماء grok القديمة بقيت بديلة
+    // لتبقى المهام والعملاء القدامى تعمل على نفس خط Gemini الجديد.
+    canonical: "gemini-omni-1.2-flash",
+    aliases: [
+      "gemini-omni-1.2-flash",
+      "gemini-omni-1-2-flash",
+      "grok-imagine-video-1-5-preview",
+      "grok-imagine-video-1.5-preview",
+    ],
     type: "video",
     providers: ["gemini", "kie", "cometapi"],
     providerModel: { kie: KIE_VIDEO_MODEL, cometapi: COMETAPI_VIDEO_MODEL, gemini: GEMINI_VIDEO_MODEL, pollinations: "" },

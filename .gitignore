@@ -58,3 +58,4 @@ server.log
 /skills/
 # لا ترفع أي سر
 !.env.example
+.next-build/

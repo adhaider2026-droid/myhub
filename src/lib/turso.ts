@@ -67,6 +67,16 @@ export async function ensureSchema(): Promise<void> {
           created_at TEXT DEFAULT (datetime('now'))
         )`,
       );
+    // ملفات الوسائط المستضافة محليًا (نواتج Gemini — روابط Google تتطلب المفتاح فلا تصلح رابطًا عامًا)
+    await db.execute(
+      `CREATE TABLE IF NOT EXISTS media_files (
+        id TEXT PRIMARY KEY,
+        mime_type TEXT NOT NULL,
+        size_bytes INTEGER NOT NULL,
+        data BLOB NOT NULL,
+        created_at TEXT DEFAULT (datetime('now'))
+      )`,
+    );
     })().catch((e) => {
       _schemaPromise = null; // اسمح بإعادة المحاولة عند الطلب التالي
       throw e;
