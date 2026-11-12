@@ -1,6 +1,7 @@
 // سجل الموديلات — الاسم canonical كما يراه عميل MCP، واسم providerModel كما يُرسل لكل مزود.
-// الأسماء الحقيقية مأخوذة من التوثيق الرسمي (docs.kie.ai و CometAPI) وتكون قابلة للتجاوز بمتغيرات البيئة:
-// KIE_IMAGE_MODEL / KIE_VIDEO_MODEL / COMETAPI_IMAGE_MODEL / COMETAPI_VIDEO_MODEL.
+// الأسماء الحقيقية مأخوذة من التوثيق الرسمي وقابلة للتجاوز بمتغيرات البيئة:
+// KIE_IMAGE_MODEL / KIE_VIDEO_MODEL / COMETAPI_IMAGE_MODEL / COMETAPI_VIDEO_MODEL /
+// GEMINI_VIDEO_MODEL / POLLINATIONS_IMAGE_MODEL.
 
 import type { MediaType, ProviderId } from "./types";
 
@@ -19,6 +20,10 @@ const KIE_VIDEO_MODEL = process.env.KIE_VIDEO_MODEL || "grok-imagine-video-1-5-p
 // توثيق CometAPI: صور gpt-image-2.6-flare عبر /v1/images/generations، وفيديو grok-imagine عبر /grok/v1/videos/generations
 const COMETAPI_IMAGE_MODEL = process.env.COMETAPI_IMAGE_MODEL || "gpt-image-2.6-flare";
 const COMETAPI_VIDEO_MODEL = process.env.COMETAPI_VIDEO_MODEL || "grok-imagine-video";
+// Gemini API (Google Veo) — عنوان الموديل من AI Studio، والافتراضي الأسرع والأرخص ($0.10/ثانية تقريبًا)
+const GEMINI_VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || "veo-3.1-fast-generate-preview";
+// موديل صور Pollinations المجاني (flux افتراضيًا)
+const POLLINATIONS_IMAGE_MODEL = process.env.POLLINATIONS_IMAGE_MODEL || "flux";
 
 export const MODELS: ModelDef[] = [
   {
@@ -26,14 +31,22 @@ export const MODELS: ModelDef[] = [
     aliases: ["gpt-image-2-6/flare-text-to-image", "gpt-image-2.6/flare-text-to-image"],
     type: "image",
     providers: ["kie", "cometapi"],
-    providerModel: { kie: KIE_IMAGE_MODEL, cometapi: COMETAPI_IMAGE_MODEL },
+    providerModel: { kie: KIE_IMAGE_MODEL, cometapi: COMETAPI_IMAGE_MODEL, gemini: "", pollinations: "" },
   },
   {
     canonical: "grok-imagine-video-1-5-preview",
     aliases: ["grok-imagine-video-1-5-preview", "grok-imagine-video-1.5-preview"],
     type: "video",
-    providers: ["kie", "cometapi"],
-    providerModel: { kie: KIE_VIDEO_MODEL, cometapi: COMETAPI_VIDEO_MODEL },
+    providers: ["gemini", "kie", "cometapi"],
+    providerModel: { kie: KIE_VIDEO_MODEL, cometapi: COMETAPI_VIDEO_MODEL, gemini: GEMINI_VIDEO_MODEL, pollinations: "" },
+  },
+  {
+    // ريلز مجانية بالكامل: صور Pollinations + تجميع ffmpeg على خدمتنا — بلا مفتاح ولا حدود رصيد
+    canonical: "reels-free",
+    aliases: ["reels-free", "reels", "free-reels", "ريلز"],
+    type: "video",
+    providers: ["pollinations"],
+    providerModel: { kie: "", cometapi: "", gemini: "", pollinations: POLLINATIONS_IMAGE_MODEL },
   },
 ];
 

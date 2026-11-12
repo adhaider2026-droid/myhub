@@ -95,11 +95,21 @@ export interface CreatedMergeJob {
   status?: string;
 }
 
-/** POST /api/jobs {"videos": [...]} → {jobId, status, statusUrl, processUrl, expiresAt} */
-export async function createMergeJob(urls: string[]): Promise<CreatedMergeJob> {
+export interface CreateMergeOptions {
+  /** merge = دمج فيديوهات (افتراضي) | slideshow = ريل من صور بحركة كاميرا */
+  mode?: "merge" | "slideshow";
+  /** خيارات وضع الريلز: مدة المشهد/الانتقال/الأبعاد */
+  options?: { sceneDuration?: number; transition?: "fade" | "cut"; width?: number; height?: number };
+}
+
+/** POST /api/jobs {"videos":[...]} → {jobId, status, statusUrl, processUrl, expiresAt} */
+export async function createMergeJob(urls: string[], opts?: CreateMergeOptions): Promise<CreatedMergeJob> {
+  const payload: Record<string, unknown> = { videos: urls };
+  if (opts?.mode) payload.mode = opts.mode;
+  if (opts?.options) payload.options = opts.options;
   const { body } = await callMerger<Record<string, unknown>>(
     "/api/jobs",
-    { method: "POST", body: JSON.stringify({ videos: urls }) },
+    { method: "POST", body: JSON.stringify(payload) },
   );
   const jobId = body?.jobId ?? body?.jobid ?? body?.id;
   if (!jobId) throw new ProviderError(502, "خدمة الدمج: استجابة بلا jobId");

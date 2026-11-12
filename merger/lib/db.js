@@ -73,12 +73,21 @@ const SCHEMA_STATEMENTS = [
   )`,
 ];
 
+/** أعمدة أضيفت لاحقًا (وضع ريلز الصور) — تُضاف بهدوء إن لم تكن موجودة */
+const MIGRATION_STATEMENTS = [
+  'ALTER TABLE jobs ADD COLUMN mode TEXT',
+  'ALTER TABLE jobs ADD COLUMN options_json TEXT',
+];
+
 /** استدعاء كسول: مرة واحدة لكل عملية باردة، وإعادة المحاولة ممكنة عند الفشل */
 function ensureSchema() {
   if (!_schemaPromise) {
     _schemaPromise = (async () => {
       const c = getClient();
       for (const sql of SCHEMA_STATEMENTS) await c.execute(sql);
+      for (const sql of MIGRATION_STATEMENTS) {
+        try { await c.execute(sql); } catch (e) { /* العمود موجود مسبقًا — تجاهل */ }
+      }
     })().catch((e) => {
       _schemaPromise = null;
       throw e;
@@ -123,6 +132,8 @@ function mapJob(r) {
     size: r.size == null ? null : Number(r.size),
     duration: r.duration == null ? null : Number(r.duration),
     resolution: r.resolution == null ? null : String(r.resolution),
+    mode: r.mode == null ? 'merge' : String(r.mode),
+    optionsJson: r.options_json == null ? null : String(r.options_json),
     createdAt: r.created_at == null ? null : String(r.created_at),
     expiresAt: r.expires_at == null ? null : String(r.expires_at),
   };
@@ -152,12 +163,12 @@ function mapSource(r) {
 /* المهام                                                              */
 /* ------------------------------------------------------------------ */
 
-async function createJobWithSources(jobId, status, sources, sourcesJson, expectedUploads, expiresAt) {
+async function createJobWithSources(jobId, status, sources, sourcesJson, expectedUploads, expiresAt, mode, optionsJson) {
   const stmts = [
     {
-      sql: `INSERT INTO jobs (id, status, progress, sources_json, expected_uploads, received_uploads, expires_at)
-            VALUES (?, ?, 0, ?, ?, 0, ?)`,
-      args: [jobId, status, sourcesJson, expectedUploads, expiresAt],
+      sql: `INSERT INTO jobs (id, status, progress, sources_json, expected_uploads, received_uploads, expires_at, mode, options_json)
+            VALUES (?, ?, 0, ?, ?, 0, ?, ?, ?)`,
+      args: [jobId, status, sourcesJson, expectedUploads, expiresAt, mode || 'merge', optionsJson || null],
     },
     ...sources.map((s) => ({
       sql: `INSERT INTO sources (id, job_id, seq, kind, url, name, size, mime, chunk_count, received_chunks, ready)
@@ -192,6 +203,8 @@ const JOB_COLUMNS = {
   expectedUploads: 'expected_uploads',
   sourcesJson: 'sources_json',
   expiresAt: 'expires_at',
+  mode: 'mode',
+  optionsJson: 'options_json',
 };
 
 async function updateJob(id, fields) {

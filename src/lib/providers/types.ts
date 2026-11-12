@@ -12,6 +12,9 @@ export interface ProviderInput {
   output_format?: string;
   enable_audio?: boolean;
   duration?: number;
+  /** ريلز المجانية: عدد المشاهد (1..10) ومدة كل مشهد بالثواني (2..8) */
+  scenes?: number;
+  seconds_per_scene?: number;
 }
 
 export interface ProviderCheckResult {

@@ -26,6 +26,7 @@ const STATUS_AR: Record<string, string> = { active: "نشط", exhausted: "مست
 const PROVIDER_TILE: Record<string, string> = {
   kie: "from-violet-500 to-fuchsia-600",
   cometapi: "from-teal-500 to-emerald-600",
+  gemini: "from-blue-500 to-indigo-600",
 };
 
 interface ProviderBalance {
@@ -147,6 +148,7 @@ export default function KeyManager() {
                   <SelectValue placeholder="اختر المزود" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="gemini">Gemini — Veo (جوجل)</SelectItem>
                   <SelectItem value="kie">kie.ai</SelectItem>
                   <SelectItem value="cometapi">CometAPI</SelectItem>
                 </SelectContent>
@@ -229,7 +231,7 @@ export default function KeyManager() {
                     <span
                       className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-sm font-extrabold text-white shadow-md ${PROVIDER_TILE[k.provider] ?? PROVIDER_TILE.kie}`}
                     >
-                      {k.provider === "kie" ? "K" : "C"}
+                      {k.provider === "kie" ? "K" : k.provider === "gemini" ? "G" : k.provider === "cometapi" ? "C" : "P"}
                     </span>
                     <span className="font-mono text-xs text-slate-200" dir="ltr">
                       {k.masked}

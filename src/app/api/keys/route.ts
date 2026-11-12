@@ -7,7 +7,7 @@ import type { ProviderId } from "@/lib/types";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const PROVIDERS: ProviderId[] = ["kie", "cometapi"];
+const PROVIDERS: ProviderId[] = ["kie", "cometapi", "gemini"];
 
 export async function GET() {
   try {
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     const provider = body?.provider as ProviderId | undefined;
     const apiKey = body?.api_key?.trim();
     if (!provider || !PROVIDERS.includes(provider)) {
-      return Response.json({ error: "المزود غير صالح — القيم المقبولة: kie أو cometapi" }, { status: 400 });
+      return Response.json({ error: "المزود غير صالح — القيم المقبولة: gemini أو kie أو cometapi" }, { status: 400 });
     }
     if (!apiKey) {
       return Response.json({ error: "قيمة المفتاح مطلوبة" }, { status: 400 });

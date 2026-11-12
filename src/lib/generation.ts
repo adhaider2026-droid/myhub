@@ -18,7 +18,7 @@ import {
 import { getKeyById, getKeyPool, recordKeyAttempt } from "./keys";
 import { classifyProviderError, isKeyRelatedMessage, ProviderError, sanitizeReason } from "./errors";
 import { resolveModel, type ModelDef } from "./models";
-import { cometapiAdapter, kieAdapter } from "./providers";
+import { cometapiAdapter, geminiAdapter, kieAdapter, pollinationsAdapter } from "./providers";
 import type { ProviderAdapter, ProviderCheckResult, ProviderInput } from "./providers/types";
 import {
   createMergeJob,
@@ -28,7 +28,12 @@ import {
 } from "./merger";
 import type { AttemptRecord, KeyRow, MediaType, ProviderId, TaskRow } from "./types";
 
-export const PROVIDERS: Record<ProviderId, ProviderAdapter> = { kie: kieAdapter, cometapi: cometapiAdapter };
+export const PROVIDERS: Record<ProviderId, ProviderAdapter> = {
+  kie: kieAdapter,
+  cometapi: cometapiAdapter,
+  gemini: geminiAdapter,
+  pollinations: pollinationsAdapter,
+};
 
 /** مرسل تقدم MCP — يبث إشعارات notifications/progress كل ~3 ثوانٍ (إن وفر العميل progressToken) */
 export type ProgressSender = (progress: number, total: number, message: string) => Promise<void>;
@@ -43,6 +48,9 @@ export interface GenArgs {
   image_url?: string;
   enable_audio?: boolean;
   duration?: number;
+  /** ريلز المجانية: عدد المشاهد ومدة كل مشهد */
+  scenes?: number;
+  seconds_per_scene?: number;
   wait_seconds: number;
 }
 
@@ -81,6 +89,9 @@ function buildProviderInput(def: ModelDef, args: GenArgs): ProviderInput {
     if (args.enable_audio !== undefined) input.enable_audio = args.enable_audio;
     if (args.duration) input.duration = args.duration;
     if (args.image_url) input.image_url = args.image_url;
+    // معطيات ريلز المجانية (المزود pollinations) — تُتجاهل لدى باقي المزودين
+    if (args.scenes) input.scenes = args.scenes;
+    if (args.seconds_per_scene) input.seconds_per_scene = args.seconds_per_scene;
   }
   return input;
 }

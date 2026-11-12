@@ -328,6 +328,196 @@ async function mergeFiles(inputPaths, outPath, opts) {
   };
 }
 
+/** تنزيل مع إعادة محاولة تلقائية — صور Pollinations قد ترد 503/402 عابرة عند ازدحام الخدمة المجانية */
+async function downloadWithRetry(url, tmpDir, cfgV, onProgress, attempts = 3) {
+  let lastErr;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await downloadToTmp(url, tmpDir, cfgV, onProgress);
+    } catch (e) {
+      lastErr = e;
+      const code = e && e.statusCode;
+      // الأخطاء الحتمية (413 حجم) لا تُعاد
+      if (code === 413) throw e;
+      if (i < attempts - 1) await util.sleep(6000 * (i + 1));
+    }
+  }
+  throw lastErr;
+}
+
+/* ------------------------------------------------------------------ */
+/* وضع الريلز — بناء فيديو من صور بحركة كاميرا وانتقالات ناعمة          */
+/* ------------------------------------------------------------------ */
+
+/** مدة الانتقال بين المشاهد (ثوانٍ) */
+const FADE_SEC = 0.6;
+
+/** تحليل خيارات الريلز المخزنة في المهمة مع قيم افتراضية آمنة */
+function parseSlideOptions(json) {
+  let o = {};
+  try { o = json ? JSON.parse(json) : {}; } catch (e) { o = {}; }
+  const clamp = (v, lo, hi, def) => {
+    const n = Math.floor(Number(v));
+    return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : def;
+  };
+  const even = (v, lo, hi, def) => {
+    let n = clamp(v, lo, hi, def);
+    if (n % 2 !== 0) n -= 1;
+    return Math.max(2, n);
+  };
+  return {
+    sceneDuration: clamp(o.sceneDuration, 2, 8, 4),
+    transition: o.transition === 'cut' ? 'cut' : 'fade',
+    width: even(o.width, 240, 1080, 720),
+    height: even(o.height, 240, 1920, 1280),
+  };
+}
+
+/** ffprobe للتحقق أن الملف صورة صالحة (بلا فحص مدة كما في الفيديو) */
+async function probeImage(p) {
+  const bin = util.ffprobePath();
+  const args = ['-v', 'error', '-print_format', 'json', '-show_streams', p];
+  const { stdout } = await runCapture(bin, args);
+  let json;
+  try {
+    json = JSON.parse(stdout);
+  } catch (e) {
+    throw util.jsonError(400, `تعذر تحليل الصورة ${path.basename(p)}`);
+  }
+  const streams = Array.isArray(json.streams) ? json.streams : [];
+  const v = streams.find((s) => s.codec_type === 'video');
+  if (!v || !v.width || !v.height) {
+    throw util.jsonError(400, `الملف ${path.basename(p)} ليس صورة صالحة`);
+  }
+  return { width: Number(v.width), height: Number(v.height) };
+}
+
+/**
+ * slideshowFiles — دالة نقية تبني ريلًا من صور:
+ * - كل صورة: تكبير مسبق ×2 ثم zoompan بحركة تبادلية (تقريب/إبعاد) لمشهد D ثانية
+ * - الانتقالات: xfade تدريجي بين المشاهد (أو قطع مباشر transition=cut)
+ * - مسار صوت صامت anullsrc ليتعامل معه كل المشغلات والمنصات
+ * - تقدم حقيقي عبر -progress pipe:1 (المدة الكلية معلومة مسبقًا)
+ */
+async function slideshowFiles(inputPaths, outPath, opts) {
+  if (!Array.isArray(inputPaths) || inputPaths.length < 1) {
+    throw util.jsonError(400, 'يلزم صورة واحدة على الأقل لبناء الريل');
+  }
+  const preset = opts.preset || util.cfg().FFMPEG_PRESET;
+  const onProgress = typeof opts.onProgress === 'function' ? opts.onProgress : null;
+  const W = evenDim(opts.width || 720);
+  const H = evenDim(opts.height || 1280);
+  const D = Math.max(2, Math.min(8, Math.floor(Number(opts.sceneDuration) || 4)));
+  const N = inputPaths.length;
+  const F = opts.transition === 'fade' && N > 1 ? FADE_SEC : 0;
+  const totalDuration = N * D - (N - 1) * F;
+  const frames = D * FPS;
+
+  const args = ['-nostdin', '-y'];
+  for (const p of inputPaths) {
+    args.push('-loop', '1', '-framerate', String(FPS), '-t', D.toFixed(3), '-i', p);
+  }
+  args.push('-f', 'lavfi', '-t', totalDuration.toFixed(3), '-i', `anullsrc=r=${AUDIO_RATE}:cl=stereo`);
+
+  const parts = [];
+  const labels = [];
+  for (let i = 0; i < N; i++) {
+    const zExpr = i % 2 === 0 ? `1+0.12*on/${frames}` : `1.12-0.12*on/${frames}`;
+    parts.push(
+      `[${i}:v]scale=${W * 2}:${H * 2}:force_original_aspect_ratio=increase,` +
+      `crop=${W * 2}:${H * 2},` +
+      `zoompan=z='${zExpr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:fps=${FPS}:s=${W}x${H},` +
+      `format=yuv420p,setsar=1[v${i}]`
+    );
+    labels.push(`[v${i}]`);
+  }
+
+  let xout;
+  if (N === 1) {
+    xout = '[v0]';
+  } else if (F > 0) {
+    let prev = '[v0]';
+    for (let k = 1; k < N; k++) {
+      const off = (k * (D - F)).toFixed(3);
+      const outLbl = k === N - 1 ? 'xout' : `fx${k}`;
+      parts.push(`${prev}${labels[k]}xfade=transition=fade:duration=${F}:offset=${off}[${outLbl}]`);
+      prev = `[${outLbl}]`;
+    }
+    xout = '[xout]';
+  } else {
+    parts.push(`${labels.join('')}concat=n=${N}:v=1:a=0[xout]`);
+    xout = '[xout]';
+  }
+  parts.push(`[${N}:a]aresample=${AUDIO_RATE},aformat=sample_fmts=fltp:channel_layouts=stereo[aout]`);
+
+  args.push(
+    '-filter_complex', parts.join(';'),
+    '-map', xout, '-map', '[aout]',
+    '-t', totalDuration.toFixed(3),
+    '-c:v', 'libx264', '-crf', '19', '-preset', preset,
+    '-c:a', 'aac', '-b:a', '128k', '-ar', String(AUDIO_RATE),
+    '-movflags', '+faststart',
+    '-progress', 'pipe:1',
+    outPath
+  );
+
+  const bin = util.ffmpegPath();
+  await new Promise((resolve, reject) => {
+    let child;
+    try {
+      child = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    } catch (e) {
+      return reject(util.jsonError(500, `تعذر تشغيل ffmpeg: ${e.message}`));
+    }
+    const errLines = [];
+    child.stderr.on('data', (d) => {
+      for (const line of d.toString('utf8').split('\n')) {
+        if (line.trim()) errLines.push(line.trim());
+        if (errLines.length > 60) errLines.shift();
+      }
+    });
+    child.on('error', (e) => {
+      reject(util.jsonError(500, e.code === 'ENOENT' ? 'ffmpeg غير مثبت على الخادم' : `تعذر تشغيل ffmpeg: ${e.message}`));
+    });
+
+    const rl = readline.createInterface({ input: child.stdout });
+    let lastPct = -1;
+    rl.on('line', (line) => {
+      const m = /out_time_us=(\d+)/.exec(line) || /out_time_ms=(\d+)/.exec(line);
+      if (m && totalDuration > 0 && onProgress) {
+        const sec = Number(m[1]) / 1e6;
+        const pct = Math.max(0, Math.min(100, Math.round((sec / totalDuration) * 100)));
+        if (pct > lastPct) {
+          lastPct = pct;
+          onProgress(pct);
+        }
+      }
+    });
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        if (onProgress && lastPct < 100) onProgress(100);
+        return resolve();
+      }
+      const tail = errLines.slice(-4).join(' | ');
+      reject(util.jsonError(500, `فشل ترميز الريل عبر ffmpeg (كود ${code}): ${tail || 'خطأ غير معروف'}`));
+    });
+  });
+
+  const st = await fsp.stat(outPath);
+  if (!st.size) throw util.jsonError(500, 'الناتج فارغ بعد الترميز');
+  const outInfo = await probeFile(outPath);
+  return {
+    size: st.size,
+    duration: outInfo.duration,
+    width: outInfo.width,
+    height: outInfo.height,
+    vCodec: outInfo.vCodec,
+    aCodec: outInfo.aCodec,
+    totalSourceDuration: totalDuration,
+  };
+}
+
 /* ------------------------------------------------------------------ */
 /* processJob — الطبقة العليا: تحضير المصادر ثم الدمج ثم التخزين        */
 /* ------------------------------------------------------------------ */
@@ -400,6 +590,8 @@ async function runPipeline(jobId, origin) {
     await setProgress(5);
     const sources = await db.getSources(jobId);
     if (!sources.length) throw util.jsonError(400, 'المهمة لا تحتوي أي مصادر');
+    const isSlideshow = job.mode === 'slideshow';
+    const slideOpts = isSlideshow ? parseSlideOptions(job.optionsJson) : null;
 
     // 1) تحضير المصادر محليًا (تنزيل الروابط أو تجميع الأجزاء) + ffprobe — تقدم 5..35 ثم 38
     const n = sources.length;
@@ -413,7 +605,9 @@ async function runPipeline(jobId, origin) {
 
       let p;
       if (s.kind === 'url') {
-        p = await downloadToTmp(s.url, tmpDir, cfgV, onSrcProgress);
+        p = isSlideshow
+          ? await downloadWithRetry(s.url, tmpDir, cfgV, onSrcProgress, 3)
+          : await downloadToTmp(s.url, tmpDir, cfgV, onSrcProgress);
       } else if (s.kind === 'file') {
         const safeName = String(s.name || `source_${s.seq}`).replace(/[^\w.\-]+/g, '_').slice(0, 80) || `source_${s.seq}`;
         p = path.join(tmpDir, `src${i}_${safeName}`);
@@ -423,31 +617,49 @@ async function runPipeline(jobId, origin) {
         throw util.jsonError(400, `نوع مصدر غير معروف (${s.kind}) في الموضع ${i + 1}`);
       }
 
-      const info = await probeFile(p);
-      await db.updateSource(s.id, {
-        duration: info.duration,
-        width: info.width,
-        height: info.height,
-        hasAudio: info.hasAudio ? 1 : 0,
-      });
+      // الريلز: التحقق أن المصدر صورة صالحة (بلا مدة/صوت) — الدمج: فحص فيديو كامل
+      const info = isSlideshow ? await probeImage(p) : await probeFile(p);
+      if (!isSlideshow) {
+        await db.updateSource(s.id, {
+          duration: info.duration,
+          width: info.width,
+          height: info.height,
+          hasAudio: info.hasAudio ? 1 : 0,
+        });
+      }
       localPaths.push(p);
       infos.push(info);
     }
     await db.syncSourcesJson(jobId);
     await setProgress(38);
 
-    // 2) تحقق المدة الإجمالية قبل الترميز
-    const totalDuration = infos.reduce((s, i) => s + i.duration, 0);
+    // 2) حساب المدة الإجمالية والتحقق منها قبل الترميز
+    let totalDuration;
+    if (isSlideshow) {
+      const fade = slideOpts.transition === 'fade' && localPaths.length > 1 ? FADE_SEC : 0;
+      totalDuration = localPaths.length * slideOpts.sceneDuration - (localPaths.length - 1) * fade;
+    } else {
+      totalDuration = infos.reduce((s, i) => s + i.duration, 0);
+    }
     if (totalDuration > cfgV.MAX_TOTAL_DURATION_SEC) {
       throw util.jsonError(400, `المدة الإجمالية للمصادر (${Math.round(totalDuration)} ثانية) تجاوز الحد المسموح (${cfgV.MAX_TOTAL_DURATION_SEC} ثانية)`);
     }
 
     // 3) الترميز — تقدم 40..90
     const outPath = path.join(tmpDir, 'output.mp4');
-    const result = await mergeFiles(localPaths, outPath, {
-      preset: cfgV.FFMPEG_PRESET,
-      onProgress: (pct) => setProgress(40 + pct * 0.5),
-    });
+    const result = isSlideshow
+      ? await slideshowFiles(localPaths, outPath, {
+          sceneDuration: slideOpts.sceneDuration,
+          transition: slideOpts.transition,
+          width: slideOpts.width,
+          height: slideOpts.height,
+          preset: cfgV.FFMPEG_PRESET,
+          onProgress: (pct) => setProgress(40 + pct * 0.5),
+        })
+      : await mergeFiles(localPaths, outPath, {
+          preset: cfgV.FFMPEG_PRESET,
+          onProgress: (pct) => setProgress(40 + pct * 0.5),
+        });
 
     // 4) تحقق حجم الناتج قبل التخزين
     if (result.size > cfgV.OUTPUT_MAX_MB * 1024 * 1024) {
@@ -499,6 +711,9 @@ async function runPipeline(jobId, origin) {
 
 module.exports = {
   mergeFiles,
+  slideshowFiles,
+  probeImage,
+  parseSlideOptions,
   processJob,
   probeFile,
   downloadToTmp,

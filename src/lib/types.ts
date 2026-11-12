@@ -1,6 +1,6 @@
 // أنواع مشتركة للمشروع كله (مهمة، مفتاح، محاولة، تصنيف أخطاء)
 
-export type ProviderId = "kie" | "cometapi";
+export type ProviderId = "kie" | "cometapi" | "gemini" | "pollinations";
 export type TaskProvider = ProviderId | "merger";
 export type MediaType = "image" | "video" | "merge";
 export type TaskStatus = "pending" | "processing" | "completed" | "failed";

@@ -14,6 +14,31 @@ module.exports = async (req, res) => {
     const cfgV = util.cfg();
     const body = await util.readJsonBody(req, 1024 * 1024);
 
+    // الوضع: merge (دمج فيديوهات — الافتراضي) أو slideshow (ريلز من صور)
+    const mode = body.mode === 'slideshow' ? 'slideshow' : 'merge';
+    const isSlideshow = mode === 'slideshow';
+
+    // خيارات وضع الريلز: مدة المشهد، الانتقال، والأبعاد (حتى الأبعاد إلزامي لـ h264)
+    let slideOpts = null;
+    if (isSlideshow) {
+      const o = body.options && typeof body.options === 'object' ? body.options : {};
+      const clamp = (v, lo, hi, def) => {
+        const n = Math.floor(Number(v));
+        return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : def;
+      };
+      const even = (v, lo, hi, def) => {
+        let n = clamp(v, lo, hi, def);
+        if (n % 2 !== 0) n -= 1;
+        return Math.max(2, n);
+      };
+      slideOpts = {
+        sceneDuration: clamp(o.sceneDuration, 2, 8, 4),
+        transition: o.transition === 'cut' ? 'cut' : 'fade',
+        width: even(o.width, 240, 1080, 720),
+        height: even(o.height, 240, 1920, 1280),
+      };
+    }
+
     // بناء قائمة المصادر من videos أو sources
     let raw = [];
     if (Array.isArray(body.videos)) {
@@ -39,8 +64,13 @@ module.exports = async (req, res) => {
     if (raw.some((s) => !s)) {
       return util.sendError(res, 400, 'صيغة المصادر غير صالحة — كل مصدر يجب أن يكون {kind:"url",url} أو {kind:"file",name,size,mime}');
     }
-    if (raw.length < 2) {
-      return util.sendError(res, 400, `يلزم مصدران على الأقل لدمج الفيديوهات — استُلم ${raw.length} فقط`);
+    if (isSlideshow && raw.some((s) => s.kind !== 'url')) {
+      return util.sendError(res, 400, 'وضع الريلز (slideshow) يقبل روابط صور مباشرة فقط (kind=url)');
+    }
+    if (raw.length < (isSlideshow ? 1 : 2)) {
+      return util.sendError(res, 400, isSlideshow
+        ? `يلزم مصدر واحد على الأقل للريلز — استُلم ${raw.length} فقط`
+        : `يلزم مصدران على الأقل لدمج الفيديوهات — استُلم ${raw.length} فقط`);
     }
     if (raw.length > cfgV.MAX_SOURCES) {
       return util.sendError(res, 400, `عدد المصادر (${raw.length}) تجاوز الحد الأقصى (${cfgV.MAX_SOURCES})`);
@@ -51,7 +81,7 @@ module.exports = async (req, res) => {
       const s = raw[i];
       if (s.kind === 'url') {
         if (!/^https?:\/\/\S+$/i.test(s.url)) {
-          return util.sendError(res, 400, `المصدر رقم ${i + 1}: الرابط غير صالح — يجب أن يكون رابط فيديو مباشر http/https`);
+          return util.sendError(res, 400, `المصدر رقم ${i + 1}: الرابط غير صالح — يجب أن يكون رابط مباشر http/https`);
         }
       } else {
         if (!Number.isFinite(s.size) || s.size <= 0) {
@@ -96,12 +126,14 @@ module.exports = async (req, res) => {
       ready: false,
     })));
 
-    await db.createJobWithSources(jobId, status, sources, sourcesJson, expectedUploads, expiresAt);
+    await db.createJobWithSources(jobId, status, sources, sourcesJson, expectedUploads, expiresAt, mode, slideOpts ? JSON.stringify(slideOpts) : null);
 
     const origin = util.getOrigin(req);
     const payload = {
       jobId,
       status,
+      mode,
+      options: slideOpts || undefined,
       statusUrl: `${origin}/api/jobs/${jobId}`,
       processUrl: `${origin}/api/jobs/${jobId}/process`,
       expiresAt,
