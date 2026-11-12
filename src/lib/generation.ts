@@ -190,7 +190,7 @@ async function applyCreationOutcome(task: TaskRow, out: CreationOutcome): Promis
     return (await updateTask(task.id, { status: "failed", error_message: sanitizeReason(out.reason) }))!;
   }
   // exhausted-all: أبقِ المهمة processing — بانتظار توفر مفتاح صالح (تُعاد المحاولة مع كل get_task)
-  return (await updateTask(task.id, { error_message: "بانتظار توفر مفتاح صالح…" }))!;
+  return (await updateTask(task.id, { error_message: "بانتظار مفتاح صالح أو رصيد كافٍ — تُستأنف المحاولة تلقائيًا…" }))!;
 }
 
 /**
@@ -225,7 +225,7 @@ export async function runGeneration(
   }
   if (creation.status === "exhausted-all") {
     // فشل الإنشاء على كل المفاتيح → processing مع رسالة داخلية؛ تُعاد المحاولة مع كل get_task
-    task = (await updateTask(taskId, { error_message: "بانتظار توفر مفتاح صالح…" }))!;
+    task = (await updateTask(taskId, { error_message: "بانتظار مفتاح صالح أو رصيد كافٍ — تُستأنف المحاولة تلقائيًا…" }))!;
     return { kind: "processing", task };
   }
   if (creation.status === "image-sync") {
@@ -277,7 +277,7 @@ export async function runGeneration(
           return { kind: "failed", task, reason: task.error_message! };
         }
         // exhausted-all → بانتظار مفتاح صالح، تُستأنف عبر get_task
-        task = (await updateTask(taskId, { error_message: "بانتظار توفر مفتاح صالح…" }))!;
+        task = (await updateTask(taskId, { error_message: "بانتظار مفتاح صالح أو رصيد كافٍ — تُستأنف المحاولة تلقائيًا…" }))!;
         return { kind: "processing", task };
       }
       if (cls === "params") {
@@ -306,7 +306,7 @@ export async function runGeneration(
           task = (await updateTask(taskId, { status: "failed", error_message: sanitizeReason(re.reason) }))!;
           return { kind: "failed", task, reason: task.error_message! };
         }
-        task = (await updateTask(taskId, { error_message: "بانتظار توفر مفتاح صالح…" }))!;
+        task = (await updateTask(taskId, { error_message: "بانتظار مفتاح صالح أو رصيد كافٍ — تُستأنف المحاولة تلقائيًا…" }))!;
         return { kind: "processing", task };
       }
       task = (await updateTask(taskId, { status: "failed", error_message: sanitizeReason(st.error || "فشل التوليد لدى المزود") }))!;

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { KeyRound, Loader2, Power, PowerOff, Trash2 } from "lucide-react";
+import { Coins, KeyRound, Loader2, Power, PowerOff, Trash2 } from "lucide-react";
 import type { PublicKeyView } from "@/lib/types";
 
 const STATUS_PILL: Record<string, string> = {
@@ -28,8 +28,15 @@ const PROVIDER_TILE: Record<string, string> = {
   cometapi: "from-teal-500 to-emerald-600",
 };
 
+interface ProviderBalance {
+  credits: number | null;
+  keyLabel: string;
+  error?: string;
+}
+
 export default function KeyManager() {
   const [keys, setKeys] = useState<PublicKeyView[]>([]);
+  const [balances, setBalances] = useState<Record<string, ProviderBalance>>({});
   const [provider, setProvider] = useState<string>("kie");
   const [label, setLabel] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -41,6 +48,10 @@ export default function KeyManager() {
       .then((r) => r.json())
       .then((d) => setKeys(d.keys ?? []))
       .catch(() => toast.error("تعذر جلب المفاتيح"));
+    fetch("/api/keys/balance")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setBalances(d?.balances ?? {}))
+      .catch(() => {});
   }, []);
 
   useEffect(load, [load]);
@@ -176,6 +187,25 @@ export default function KeyManager() {
         <p className="rounded-xl border border-amber-400/20 bg-amber-500/8 px-3.5 py-2.5 text-[11px] leading-relaxed text-amber-300/95">
           أضف عدة مفاتيح لكل مزود — التجربة تسلسلية (أول مفتاح ثم التالي ثم التالي) مع تبديل فوري تلقائي عند أي خطأ أو نفاد رصيد دون توقف.
         </p>
+
+        {/* الرصيد الحي — يفسر لماذا تنتظر بعض المهام */}
+        {balances.kie && (
+          <div
+            className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-[11px] ${
+              balances.kie.credits !== null && balances.kie.credits > 0
+                ? "border-violet-400/20 bg-violet-500/8"
+                : "border-amber-400/20 bg-amber-500/8"
+            }`}
+          >
+            <Coins className="h-4 w-4 shrink-0 text-violet-300" />
+            <span className="text-muted-foreground">رصيد kie.ai المتاح</span>
+            {balances.kie.credits !== null ? (
+              <b className="ms-auto tabular-nums text-sm text-violet-200">{balances.kie.credits.toLocaleString("en-US")} نقطة</b>
+            ) : (
+              <b className="ms-auto text-amber-300">غير معروف{balances.kie.error ? ` — ${balances.kie.error}` : ""}</b>
+            )}
+          </div>
+        )}
 
         {/* القائمة — مقنعة دائمًا */}
         <div className="scroll-slim max-h-96 flex-1 space-y-3 overflow-y-auto pe-1">

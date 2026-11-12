@@ -2,7 +2,7 @@
 
 // لوحة المهام: قائمة أحدث المهام تتحدث تلقائيًا كل ~5 ثوانٍ — بطاقات زجاجية وأيقونات متدرجة.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -75,9 +75,22 @@ export default function TaskBoard() {
     [],
   );
 
+  const ticks = useRef(0);
   useEffect(() => {
     load(false);
-    const t = setInterval(() => load(true), 5000);
+    const t = setInterval(() => {
+      load(true);
+      // كل ~20 ثانية: استئناف تلقائي للمهام العالقة (بانتظار مفتاح/رصيد) ثم تحديث فوري عند أي تغيّر
+      ticks.current += 1;
+      if (ticks.current % 4 === 0) {
+        fetch("/api/tasks/sweep", { method: "POST" })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d) => {
+            if (d && d.swept > 0) load(true);
+          })
+          .catch(() => {});
+      }
+    }, 5000);
     return () => clearInterval(t);
   }, [load]);
 
@@ -90,7 +103,7 @@ export default function TaskBoard() {
         </span>
         <div>
           <h2 className="text-sm font-bold leading-tight">لوحة المهام</h2>
-          <p className="text-[11px] leading-tight text-muted-foreground">أحدث 30 مهمة — تحديث تلقائي كل 5 ثوانٍ</p>
+          <p className="text-[11px] leading-tight text-muted-foreground">أحدث 30 مهمة — تحديث كل 5 ثوانٍ مع استئناف تلقائي للمعلّقة</p>
         </div>
         <Button
           size="icon"
@@ -169,6 +182,12 @@ export default function TaskBoard() {
 
               {t.status === "failed" && t.error_message ? (
                 <p className="mt-2.5 rounded-lg border border-rose-400/15 bg-rose-500/10 px-2.5 py-1.5 text-[11px] leading-relaxed text-rose-300">
+                  {t.error_message}
+                </p>
+              ) : null}
+
+              {t.status === "processing" && t.error_message ? (
+                <p className="mt-2.5 rounded-lg border border-amber-400/15 bg-amber-500/10 px-2.5 py-1.5 text-[11px] leading-relaxed text-amber-300">
                   {t.error_message}
                 </p>
               ) : null}
