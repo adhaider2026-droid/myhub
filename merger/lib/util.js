@@ -8,6 +8,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { spawn } = require('child_process');
 const crypto = require('crypto');
 
 /** حجم صف التخزين في Turso (حد HTTP آمن) = 2MB */

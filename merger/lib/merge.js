@@ -80,7 +80,7 @@ function parseFps(v) {
 
 /** ffprobe لملف: المدة، الدقة، fps، وجود صوت، والترميزات */
 async function probeFile(p) {
-  const bin = util.ffprobePath();
+  const bin = await util.ensureBinary('ffprobe');
   const args = ['-v', 'error', '-print_format', 'json', '-show_format', '-show_streams', p];
   const { stdout } = await runCapture(bin, args);
   let json;
@@ -270,7 +270,7 @@ async function mergeFiles(inputPaths, outPath, opts) {
     outPath
   );
 
-  const bin = util.ffmpegPath();
+  const bin = await util.ensureBinary('ffmpeg');
   await new Promise((resolve, reject) => {
     let child;
     try {
@@ -375,7 +375,7 @@ function parseSlideOptions(json) {
 
 /** ffprobe للتحقق أن الملف صورة صالحة (بلا فحص مدة كما في الفيديو) */
 async function probeImage(p) {
-  const bin = util.ffprobePath();
+  const bin = await util.ensureBinary('ffprobe');
   const args = ['-v', 'error', '-print_format', 'json', '-show_streams', p];
   const { stdout } = await runCapture(bin, args);
   let json;
@@ -461,7 +461,7 @@ async function slideshowFiles(inputPaths, outPath, opts) {
     outPath
   );
 
-  const bin = util.ffmpegPath();
+  const bin = await util.ensureBinary('ffmpeg');
   await new Promise((resolve, reject) => {
     let child;
     try {
